@@ -7,7 +7,44 @@ can be checked before Unity is ever opened. Lateral dynamics are out of scope he
 """
 import math
 
-# ---- Definition (must match Assets/Data/Vehicles/MeridianGTS.asset) ----
+# ---- Definitions (must match the assets in Assets/Data/Vehicles/) ----
+VEHICLES = {
+    "MeridianGTS": dict(
+        MASS=1520.0, FRONT_DIST=0.52, WHEELBASE=2.75, COM_HEIGHT=0.48,
+        WHEEL_R=0.34, WHEEL_I=1.30, ENGINE_I=0.28, IDLE_RPM=750.0,
+        REDLINE=7000.0, LIMITER=7100.0, PEAK_TORQUE=500.0,
+        FRICTION=22.0, FRICTION_PER_RAD=0.045,
+        MAX_BOOST=0.95, BOOST_GAIN=0.62, BOOST_ONSET=1500.0, BOOST_FULL=3200.0,
+        BOOST_SPOOL_HL=0.30, BOOST_DECAY_HL=0.10,
+        GEARS=[5.25, 3.36, 2.17, 1.72, 1.32, 1.00, 0.82, 0.64], FINAL=3.15,
+        EFF=0.90, CLUTCH_MAX=900.0, SHIFT_TIME=0.12, SHIFT_COOLDOWN=0.55,
+        BASE_UP=5200.0, THROTTLE_UP_GAIN=1400.0,
+        CD=0.30, AREA=2.10, MU=1.15, LOAD_SENS=0.22,
+        B=11.0, C=1.65, E=0.95, SPORT_UP=1100.0,
+        CURVE=[(0.00,0.30),(0.11,0.46),(0.20,0.78),(0.26,1.00),
+               (0.60,1.00),(0.72,0.94),(0.86,0.82),(1.00,0.62)],
+        DRIVEN_AXLE_SHARE=None,   # rear driven
+        DRIVEN_FRONT=False,
+    ),
+    "Vantis15T": dict(
+        MASS=1180.0, FRONT_DIST=0.62, WHEELBASE=2.58, COM_HEIGHT=0.55,
+        WHEEL_R=0.315, WHEEL_I=0.95, ENGINE_I=0.16, IDLE_RPM=800.0,
+        REDLINE=6500.0, LIMITER=6600.0, PEAK_TORQUE=250.0,
+        FRICTION=13.0, FRICTION_PER_RAD=0.030,
+        MAX_BOOST=0.80, BOOST_GAIN=0.55, BOOST_ONSET=1400.0, BOOST_FULL=2600.0,
+        BOOST_SPOOL_HL=0.22, BOOST_DECAY_HL=0.09,
+        GEARS=[4.15, 2.37, 1.56, 1.16, 0.86, 0.69], FINAL=4.06,
+        EFF=0.91, CLUTCH_MAX=430.0, SHIFT_TIME=0.28, SHIFT_COOLDOWN=0.70,
+        BASE_UP=4300.0, THROTTLE_UP_GAIN=1500.0,
+        CD=0.32, AREA=2.20, MU=1.00, LOAD_SENS=0.26,
+        B=10.5, C=1.60, E=0.95, SPORT_UP=800.0,
+        CURVE=[(0.00,0.28),(0.12,0.52),(0.24,0.92),(0.30,1.00),
+               (0.62,0.98),(0.74,0.88),(0.88,0.72),(1.00,0.52)],
+        DRIVEN_AXLE_SHARE=None,
+        DRIVEN_FRONT=True,        # front driven: weight transfers AWAY from the driven axle
+    ),
+}
+
 MASS = 1520.0
 FRONT_DIST = 0.52
 WHEELBASE = 2.75
@@ -224,61 +261,62 @@ def run(mode="sport", tc_on=True, seconds=90.0, dt=0.005):
     return t100, t200, t60mph, top, trace
 
 
-print("=" * 74)
-print("MERIDIAN GT-S  -  longitudinal validation (fictional vehicle)")
-print("=" * 74)
 
-# Static design checks
-print("\n[Design consistency]")
-peak_hp = 0; peak_hp_rpm = 0; peak_nm = 0; peak_nm_rpm = 0
-r = IDLE_RPM
-while r <= REDLINE:
-    spool = min(1.0, max(0.0, (r-BOOST_ONSET)/(BOOST_FULL-BOOST_ONSET)))
-    tq = torque_curve(r)*PEAK_TORQUE*(1+BOOST_GAIN*spool)/(1+BOOST_GAIN)
-    hp = tq*r/7127.0
-    if tq > peak_nm: peak_nm, peak_nm_rpm = tq, r
-    if hp > peak_hp: peak_hp, peak_hp_rpm = hp, r
-    r += 10
-print(f"  Peak torque : {peak_nm:6.0f} Nm @ {peak_nm_rpm:5.0f} rpm")
-print(f"  Peak power  : {peak_hp:6.0f} hp @ {peak_hp_rpm:5.0f} rpm  ({peak_hp*0.7457:.0f} kW)")
-print(f"  Power/weight: {peak_hp/MASS*1000:.0f} hp per tonne")
+def load(name):
+    """Rebind the module-level constants to the named vehicle."""
+    spec = VEHICLES[name]
+    g = globals()
+    for key, value in spec.items():
+        g[key] = value
+    g["TORQUE_CURVE"] = spec["CURVE"]
+    g["NOMINAL_LOAD"] = spec["MASS"] * 9.81 / 4.0
+    g["RPM_TO_RAD"] = 1.0 / RAD_TO_RPM
+    return spec
 
-front_corner = MASS*9.81*FRONT_DIST/2
-rear_corner = MASS*9.81*(1-FRONT_DIST)/2
-print(f"  Static corner load  front {front_corner:.0f} N   rear {rear_corner:.0f} N")
-print(f"  Static compression  front {front_corner/40000*1000:.0f} mm  rear {rear_corner/38000*1000:.0f} mm")
 
-print("\n[Gearing: road speed at redline, and rpm at 100 km/h]")
-for i, g in enumerate(GEARS, start=1):
-    ratio = g*FINAL
-    v_redline = REDLINE*RPM_TO_RAD/ratio*WHEEL_R*3.6
-    rpm_100 = (100/3.6)/WHEEL_R*ratio*RAD_TO_RPM
-    print(f"  gear {i}  ratio {g:5.2f}  overall {ratio:6.2f}   "
-          f"{v_redline:6.1f} km/h at redline   {rpm_100:5.0f} rpm at 100 km/h")
+def report(name):
+    spec = load(name)
+    print("=" * 74)
+    print("%s  -  longitudinal validation (fictional vehicle)" % name)
+    print("=" * 74)
 
-print("\n[Traction-limited launch check]")
-for name, dist in (("static", 1-FRONT_DIST), ("with 0.6g transfer", None)):
-    if dist is None:
-        rear = MASS*G*(1-FRONT_DIST) + MASS*(0.6*G)*COM_HEIGHT/WHEELBASE
-    else:
-        rear = MASS*G*dist
-    fz = rear/2
-    lf = max(0.35, min(1.35, 1 - LOAD_SENS*(fz/NOMINAL_LOAD - 1)))
-    fmax = 2*MU*lf*fz
-    print(f"  rear axle {name:20s}: {rear:6.0f} N  ->  max traction {fmax:6.0f} N "
-          f"= {fmax/MASS/G:.2f} g")
+    peak_hp = peak_hp_rpm = peak_nm = peak_nm_rpm = 0
+    r = IDLE_RPM
+    while r <= REDLINE:
+        spool = min(1.0, max(0.0, (r - BOOST_ONSET) / (BOOST_FULL - BOOST_ONSET)))
+        tq = torque_curve(r) * PEAK_TORQUE * (1 + BOOST_GAIN * spool) / (1 + BOOST_GAIN)
+        hp = tq * r / 7127.0
+        if tq > peak_nm: peak_nm, peak_nm_rpm = tq, r
+        if hp > peak_hp: peak_hp, peak_hp_rpm = hp, r
+        r += 10
+    print("  Peak torque : %6.0f Nm @ %5.0f rpm" % (peak_nm, peak_nm_rpm))
+    print("  Peak power  : %6.0f hp @ %5.0f rpm  (%.0f kW)" % (peak_hp, peak_hp_rpm, peak_hp * 0.7457))
+    print("  Power/weight: %.0f hp per tonne" % (peak_hp / MASS * 1000))
 
-for mode in ("comfort", "sport"):
-    for tc in (True, False):
-        t100, t200, t60, top, trace = run(mode, tc)
-        label = f"{mode.upper():8s} TC {'on ' if tc else 'off'}"
-        print(f"\n[{label}]")
-        print(f"  0-100 km/h : {t100:.2f} s" if t100 else "  0-100 km/h : not reached")
-        print(f"  0-60 mph   : {t60:.2f} s" if t60 else "  0-60 mph   : not reached")
-        print(f"  0-200 km/h : {t200:.2f} s" if t200 else "  0-200 km/h : not reached")
-        print(f"  top speed  : {top:.1f} km/h")
-        if mode == "sport" and tc:
-            print("    t(s)   km/h    rpm  gear   slip   boost")
-            for row in trace:
-                print(f"    {row[0]:5.1f} {row[1]:6.1f} {row[2]:6.0f}    {row[3]}  "
-                      f"{row[4]:+.3f}  {row[5]:.2f}")
+    # Traction limit at the driven axle, including longitudinal load transfer.
+    share = FRONT_DIST if DRIVEN_FRONT else (1 - FRONT_DIST)
+    sign = -1.0 if DRIVEN_FRONT else 1.0
+    for label, accel_g in (("static", 0.0), ("under 0.5 g", 0.5)):
+        axle = MASS * G * share + sign * MASS * (accel_g * G) * COM_HEIGHT / WHEELBASE
+        fz = max(1.0, axle / 2)
+        lf = max(0.35, min(1.35, 1 - LOAD_SENS * (fz / NOMINAL_LOAD - 1)))
+        fmax = 2 * MU * lf * fz
+        print("  Driven axle %-12s: %6.0f N  ->  max traction %6.0f N = %.2f g"
+              % (label, axle, fmax, fmax / MASS / G))
+
+    for mode in ("comfort", "sport"):
+        for tc in (True, False):
+            t100, t200, t60, top, _ = run(mode, tc)
+            print("  %-8s TC %-3s : 0-100 %s   0-200 %s   top %5.1f km/h"
+                  % (mode.upper(), "on" if tc else "off",
+                     ("%.2f s" % t100) if t100 else "  n/a ",
+                     ("%.2f s" % t200) if t200 else "  n/a ",
+                     top))
+    print()
+
+
+if __name__ == "__main__":
+    import sys
+    names = sys.argv[1:] or list(VEHICLES.keys())
+    for n in names:
+        report(n)

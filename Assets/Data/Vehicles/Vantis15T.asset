@@ -10,102 +10,103 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e92c383fb6d3d964047da7db8ef134ec, type: 3}
-  m_Name: MeridianGTS
+  m_Name: Vantis15T
   m_EditorClassIdentifier: 
   Identity:
-    DisplayName: Meridian GT-S
-    Manufacturer: Meridian (fictional)
-    ModelYear: 2024
-    VehicleClass: Sports Coupe
+    DisplayName: Vantis 1.5T
+    Manufacturer: Vantis (fictional)
+    ModelYear: 2023
+    VehicleClass: Compact Hatchback
     SpecificationSource: 'FICTIONAL VEHICLE. No specification here is taken from a real car. Figures were
-      authored to be mutually consistent for a 1520 kg rear-drive turbocharged coupe
-      and verified by simulation: 500 Nm at 3200 rpm, 350 hp at 6140 rpm, 0-100 km/h
-      in about 5.5 s in Sport, drag-limited top speed near 270 km/h reached in 6th.'
+      authored to be mutually consistent for an 1180 kg front-drive turbocharged
+      hatchback: 250 Nm from 1900 rpm, roughly 170 hp, a nose-heavy 62/38 balance,
+      softer rear springs and an open-ish front differential, so it understeers on
+      power where the coupe oversteers.'
   Chassis:
-    MassKg: 1520
-    CentreOfMassOffset: {x: 0, y: 0.48, z: 0.055}
-    WheelbaseM: 2.75
-    TrackWidthM: 1.58
-    InertiaTensorScale: 1.35
-    FrontWeightDistribution: 0.52
+    MassKg: 1180
+    CentreOfMassOffset: {x: 0, y: 0.55, z: 0.3096}
+    WheelbaseM: 2.58
+    TrackWidthM: 1.52
+    InertiaTensorScale: 1.25
+    FrontWeightDistribution: 0.62
   Engine:
-    Description: 3.0L Turbocharged Inline-6
+    Description: 1.5L Turbocharged Inline-4
     Aspiration: 1
-    DisplacementLitres: 3
-    IdleRpm: 750
-    RedlineRpm: 7000
-    RevLimiterRpm: 7100
+    DisplacementLitres: 1.5
+    IdleRpm: 800
+    RedlineRpm: 6500
+    RevLimiterRpm: 6600
     NormalisedTorqueCurve:
       serializedVersion: 2
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 0.3
-        inSlope: 1.454545
-        outSlope: 1.454545
+        value: 0.28
+        inSlope: 2
+        outSlope: 2
         tangentMode: 0
         weightedMode: 0
         inWeight: 0.33333334
         outWeight: 0.33333334
       - serializedVersion: 3
-        time: 0.11
-        value: 0.46
-        inSlope: 2.4
-        outSlope: 2.4
+        time: 0.12
+        value: 0.52
+        inSlope: 2.666667
+        outSlope: 2.666667
         tangentMode: 0
         weightedMode: 0
         inWeight: 0.33333334
         outWeight: 0.33333334
       - serializedVersion: 3
-        time: 0.2
-        value: 0.78
-        inSlope: 3.6
-        outSlope: 3.6
+        time: 0.24
+        value: 0.92
+        inSlope: 2.666667
+        outSlope: 2.666667
         tangentMode: 0
         weightedMode: 0
         inWeight: 0.33333334
         outWeight: 0.33333334
       - serializedVersion: 3
-        time: 0.26
+        time: 0.3
         value: 1
-        inSlope: 0.55
-        outSlope: 0.55
+        inSlope: 0.157895
+        outSlope: 0.157895
         tangentMode: 0
         weightedMode: 0
         inWeight: 0.33333334
         outWeight: 0.33333334
       - serializedVersion: 3
-        time: 0.6
-        value: 1
-        inSlope: -0.130435
-        outSlope: -0.130435
+        time: 0.62
+        value: 0.98
+        inSlope: -0.272727
+        outSlope: -0.272727
         tangentMode: 0
         weightedMode: 0
         inWeight: 0.33333334
         outWeight: 0.33333334
       - serializedVersion: 3
-        time: 0.72
-        value: 0.94
-        inSlope: -0.692308
-        outSlope: -0.692308
+        time: 0.74
+        value: 0.88
+        inSlope: -1
+        outSlope: -1
         tangentMode: 0
         weightedMode: 0
         inWeight: 0.33333334
         outWeight: 0.33333334
       - serializedVersion: 3
-        time: 0.86
-        value: 0.82
-        inSlope: -1.142857
-        outSlope: -1.142857
+        time: 0.88
+        value: 0.72
+        inSlope: -1.384615
+        outSlope: -1.384615
         tangentMode: 0
         weightedMode: 0
         inWeight: 0.33333334
         outWeight: 0.33333334
       - serializedVersion: 3
         time: 1
-        value: 0.62
-        inSlope: -1.428571
-        outSlope: -1.428571
+        value: 0.52
+        inSlope: -1.666667
+        outSlope: -1.666667
         tangentMode: 0
         weightedMode: 0
         inWeight: 0.33333334
@@ -113,66 +114,64 @@ MonoBehaviour:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-    PeakTorqueNm: 500
-    InertiaKgM2: 0.28
-    FrictionTorqueNm: 22
-    FrictionTorquePerRadPerSec: 0.045
+    PeakTorqueNm: 250
+    InertiaKgM2: 0.16
+    FrictionTorqueNm: 13
+    FrictionTorquePerRadPerSec: 0.03
     StarterDurationSeconds: 0.9
-    StallRpm: 380
-    MaxBoostBar: 0.95
-    BoostTorqueGain: 0.62
-    BoostOnsetRpm: 1500
-    BoostFullRpm: 3200
-    BoostSpoolHalfLife: 0.3
-    BoostDecayHalfLife: 0.1
-    BlowOffThresholdBar: 0.35
+    StallRpm: 420
+    MaxBoostBar: 0.8
+    BoostTorqueGain: 0.55
+    BoostOnsetRpm: 1400
+    BoostFullRpm: 2600
+    BoostSpoolHalfLife: 0.22
+    BoostDecayHalfLife: 0.09
+    BlowOffThresholdBar: 0.3
   Transmission:
-    Type: 2
+    Type: 1
     ForwardGearRatios:
-    - 5.25
-    - 3.36
-    - 2.17
-    - 1.72
-    - 1.32
-    - 1
-    - 0.82
-    - 0.64
-    ReverseGearRatio: 4.72
-    FinalDriveRatio: 3.15
-    DriveEfficiency: 0.9
-    ShiftTimeSeconds: 0.12
-    ShiftCooldownSeconds: 0.55
-    ClutchMaxTorqueNm: 900
-    BaseUpshiftRpm: 5200
-    BaseDownshiftRpm: 1600
-    ThrottleUpshiftRpmGain: 1400
+    - 4.15
+    - 2.37
+    - 1.56
+    - 1.16
+    - 0.86
+    - 0.69
+    ReverseGearRatio: 3.87
+    FinalDriveRatio: 4.06
+    DriveEfficiency: 0.91
+    ShiftTimeSeconds: 0.28
+    ShiftCooldownSeconds: 0.7
+    ClutchMaxTorqueNm: 430
+    BaseUpshiftRpm: 4300
+    BaseDownshiftRpm: 1500
+    ThrottleUpshiftRpmGain: 1500
     DownshiftRpmSafetyFactor: 0.93
   Drivetrain:
-    Layout: 1
-    FrontTorqueSplit: 0.35
-    FrontDifferential: 0
-    RearDifferential: 1
-    LsdPowerLockCoefficient: 42
-    LsdCoastLockCoefficient: 22
-    LsdPreloadNm: 45
-    LsdMaxLockNm: 900
+    Layout: 0
+    FrontTorqueSplit: 1
+    FrontDifferential: 1
+    RearDifferential: 0
+    LsdPowerLockCoefficient: 18
+    LsdCoastLockCoefficient: 8
+    LsdPreloadNm: 20
+    LsdMaxLockNm: 420
   Wheels:
-    RadiusM: 0.34
-    WidthM: 0.245
-    InertiaKgM2: 1.3
+    RadiusM: 0.315
+    WidthM: 0.205
+    InertiaKgM2: 0.95
     GroundMask: 512
   Tyres:
-    PeakFrictionCoefficient: 1.15
-    LongStiffnessB: 11
-    LongShapeC: 1.65
+    PeakFrictionCoefficient: 1
+    LongStiffnessB: 10.5
+    LongShapeC: 1.6
     LongPeakD: 1
     LongCurvatureE: 0.95
-    LatStiffnessB: 14
-    LatShapeC: 1.35
+    LatStiffnessB: 13
+    LatShapeC: 1.32
     LatPeakD: 1
-    LatCurvatureE: -0.2
-    NominalLoadN: 3727.8
-    LoadSensitivity: 0.22
+    LatCurvatureE: -0.25
+    NominalLoadN: 2893.95
+    LoadSensitivity: 0.26
     RelaxationLengthM: 0.55
     LowSpeedReferenceMps: 3
     RollingResistanceCoefficient: 0.013
@@ -180,34 +179,34 @@ MonoBehaviour:
     RestLengthM: 0.3
     MaxTravelM: 0.2
     SpringRateNPerM: 40000
-    CompressionDampingNsPerM: 3100
-    ReboundDampingNsPerM: 4700
-    AntiRollBarNPerM: 16000
+    CompressionDampingNsPerM: 2500
+    ReboundDampingNsPerM: 3600
+    AntiRollBarNPerM: 13000
     BumpStopRateNPerM: 260000
     BumpStopZone: 0.08
   RearSuspension:
     RestLengthM: 0.3
     MaxTravelM: 0.2
-    SpringRateNPerM: 38000
-    CompressionDampingNsPerM: 2950
-    ReboundDampingNsPerM: 4400
-    AntiRollBarNPerM: 13000
+    SpringRateNPerM: 26000
+    CompressionDampingNsPerM: 1900
+    ReboundDampingNsPerM: 2800
+    AntiRollBarNPerM: 7000
     BumpStopRateNPerM: 260000
     BumpStopZone: 0.08
   Brakes:
-    MaxTorqueFrontNm: 2600
-    MaxTorqueRearNm: 1600
-    HandbrakeTorqueNm: 2400
+    MaxTorqueFrontNm: 1900
+    MaxTorqueRearNm: 1100
+    HandbrakeTorqueNm: 1600
     AbsAvailable: 1
     AbsSlipThreshold: 0.14
     AbsReleaseFactor: 0.22
     AbsCycleHz: 12
     AbsMinSpeedMps: 2.5
   Steering:
-    MaxSteerAngleDeg: 36
-    SteeringWheelLockDeg: 720
-    SteerRateDegPerSec: 260
-    SteerReturnRateDegPerSec: 340
+    MaxSteerAngleDeg: 38
+    SteeringWheelLockDeg: 900
+    SteerRateDegPerSec: 240
+    SteerReturnRateDegPerSec: 320
     SpeedSensitivity:
       serializedVersion: 2
       m_Curve:
@@ -259,12 +258,12 @@ MonoBehaviour:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-    AckermannFactor: 0.85
+    AckermannFactor: 0.9
   Aero:
-    DragCoefficient: 0.3
-    FrontalAreaM2: 2.1
-    FrontDownforceCoefficient: 0.06
-    RearDownforceCoefficient: 0.12
+    DragCoefficient: 0.32
+    FrontalAreaM2: 2.2
+    FrontDownforceCoefficient: 0.02
+    RearDownforceCoefficient: 0.03
     CentreOfPressureOffset: {x: 0, y: 0.55, z: -0.2}
   Stability:
     TractionControlAvailable: 1
@@ -274,9 +273,9 @@ MonoBehaviour:
     StabilityYawErrorDeadZone: 0.12
     StabilityControlGain: 2200
   Fuel:
-    TankCapacityLitres: 60
-    SpecificConsumptionGPerKWh: 290
-    IdleConsumptionLPerHour: 0.85
+    TankCapacityLitres: 45
+    SpecificConsumptionGPerKWh: 280
+    IdleConsumptionLPerHour: 0.55
   DriveModes:
   - DisplayName: COMFORT
     ThrottleMap:
@@ -285,15 +284,15 @@ MonoBehaviour:
       - serializedVersion: 3
         time: 0
         value: 0
-        inSlope: 0.64
-        outSlope: 0.64
+        inSlope: 0.72
+        outSlope: 0.72
         tangentMode: 0
         weightedMode: 0
         inWeight: 0.33333334
         outWeight: 0.33333334
       - serializedVersion: 3
         time: 0.5
-        value: 0.32
+        value: 0.36
         inSlope: 1
         outSlope: 1
         tangentMode: 0
@@ -303,8 +302,8 @@ MonoBehaviour:
       - serializedVersion: 3
         time: 1
         value: 1
-        inSlope: 1.36
-        outSlope: 1.36
+        inSlope: 1.28
+        outSlope: 1.28
         tangentMode: 0
         weightedMode: 0
         inWeight: 0.33333334
@@ -333,15 +332,15 @@ MonoBehaviour:
       - serializedVersion: 3
         time: 0
         value: 0
-        inSlope: 1.44
-        outSlope: 1.44
+        inSlope: 1.28
+        outSlope: 1.28
         tangentMode: 0
         weightedMode: 0
         inWeight: 0.33333334
         outWeight: 0.33333334
       - serializedVersion: 3
         time: 0.5
-        value: 0.72
+        value: 0.64
         inSlope: 1
         outSlope: 1
         tangentMode: 0
@@ -351,8 +350,8 @@ MonoBehaviour:
       - serializedVersion: 3
         time: 1
         value: 1
-        inSlope: 0.56
-        outSlope: 0.56
+        inSlope: 0.72
+        outSlope: 0.72
         tangentMode: 0
         weightedMode: 0
         inWeight: 0.33333334
@@ -361,8 +360,8 @@ MonoBehaviour:
       m_PostInfinity: 2
       m_RotationOrder: 4
     ThrottleResponseHalfLife: 0.045
-    UpshiftRpmOffset: 1100
-    DownshiftRpmOffset: 700
+    UpshiftRpmOffset: 800
+    DownshiftRpmOffset: 500
     ShiftTimeMultiplier: 0.55
     KickdownThreshold: 0.62
     SteeringRateMultiplier: 1.25

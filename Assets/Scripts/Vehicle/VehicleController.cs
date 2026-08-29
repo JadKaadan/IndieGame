@@ -110,6 +110,18 @@ namespace IndieGame.Vehicles
         /// <summary>Raised on a gear change. True when it was a downshift.</summary>
         public event Action<bool> GearChanged;
 
+        /// <summary>Raised when the throttle snaps shut on boost and the valve vents.</summary>
+        public event Action BlowOffTriggered;
+
+        /// <summary>
+        /// Raised after tuning is applied. Components that own their own part of the
+        /// car's setup, such as the exhaust, subscribe rather than being reached into.
+        /// </summary>
+        public event Action<VehicleSaveData> TuningApplied;
+
+        /// <summary>The save record backing this vehicle. Null until Start has run.</summary>
+        public VehicleSaveData SaveData => _saveData;
+
         public int DriveModeIndex { get; private set; }
 
         public DriveModeSettings CurrentDriveMode =>
@@ -124,6 +136,17 @@ namespace IndieGame.Vehicles
         private ITireModel _tireModel = PacejkaTireModel.Shared;
         private VehicleSaveData _saveData;
         private int _groundMask;
+        private float _appliedRideHeightOffset;
+
+        // ---- Tuning multipliers applied on top of the drive mode's own ----
+        /// <summary>Scales tyre peak friction. A tyre upgrade raises this.</summary>
+        public float TyreGripMultiplier { get; private set; } = 1f;
+
+        /// <summary>Scales spring rate on top of the drive mode's multiplier.</summary>
+        public float SpringTuningMultiplier { get; private set; } = 1f;
+
+        /// <summary>Scales damping on top of the drive mode's multiplier.</summary>
+        public float DamperTuningMultiplier { get; private set; } = 1f;
         private float _autoSaveTimer;
         private Vector3 _previousVelocity;
         private bool _initialised;
@@ -316,8 +339,8 @@ namespace IndieGame.Vehicles
             // 1. Suspension. Cast first, then let the anti-roll bars adjust the pair,
             //    then push the forces in, so the tyre loads below are already correct.
             var mode = CurrentDriveMode;
-            float springMultiplier = mode != null ? mode.SpringStiffnessMultiplier : 1f;
-            float damperMultiplier = mode != null ? mode.DamperMultiplier : 1f;
+            float springMultiplier = (mode != null ? mode.SpringStiffnessMultiplier : 1f) * SpringTuningMultiplier;
+            float damperMultiplier = (mode != null ? mode.DamperMultiplier : 1f) * DamperTuningMultiplier;
             float antiRollMultiplier = mode != null ? mode.AntiRollMultiplier : 1f;
 
             for (int i = 0; i < wheels.Length; i++)
@@ -340,7 +363,7 @@ namespace IndieGame.Vehicles
 
             // 3. Tyre forces. This is what actually accelerates, brakes and turns the car.
             for (int i = 0; i < wheels.Length; i++)
-                wheels[i].UpdateTireForces(Body, definition, _tireModel, dt);
+                wheels[i].UpdateTireForces(Body, definition, _tireModel, TyreGripMultiplier, dt);
 
             // 4. Driveline speed feeds the clutch, so it must be sampled before the gearbox.
             Drivetrain.SampleDrivelineSpeed(wheels);
@@ -365,7 +388,8 @@ namespace IndieGame.Vehicles
             Drivetrain.DistributeTorque(wheels, Transmission.DrivelineTorqueNm, Engine.EffectiveThrottle);
 
             // 7. Brakes, then stability control, which may only add brake torque.
-            Brakes.Apply(wheels, input.Brake, input.Handbrake, forwardSpeed, dt);
+            float handbrake = IsParked ? 1f : input.Handbrake;
+            Brakes.Apply(wheels, input.Brake, handbrake, forwardSpeed, dt);
             Stability.ApplyStabilityControl(Body, wheels, Steering.RoadWheelAngleDeg, forwardSpeed, mode);
 
             // 8. Integrate wheel rotation with everything that was applied to it.
@@ -386,6 +410,9 @@ namespace IndieGame.Vehicles
 
             if (Transmission.ShiftEventThisStep)
                 GearChanged?.Invoke(Transmission.LastShiftWasDownshift);
+
+            if (Engine.BlowOffTriggered)
+                BlowOffTriggered?.Invoke();
 
             if (persistState)
             {
@@ -470,7 +497,7 @@ namespace IndieGame.Vehicles
         {
             if (!holdWhenStopped) return;
 
-            bool driverHolding = input.Brake > 0.1f || input.Handbrake > 0.1f;
+            bool driverHolding = input.Brake > 0.1f || input.Handbrake > 0.1f || IsParked;
             bool notAccelerating = input.Throttle < 0.05f;
             bool nearlyStopped = Mathf.Abs(forwardSpeed) < 0.6f;
 
@@ -595,6 +622,7 @@ namespace IndieGame.Vehicles
             Stability.TractionControlEnabled = _saveData.TractionControlEnabled && definition.Stability.TractionControlAvailable;
             Stability.StabilityControlEnabled = _saveData.StabilityControlEnabled && definition.Stability.StabilityControlAvailable;
 
+            Tuning.TuningCatalogue.Apply(_saveData, _saveData.TuningLevels);
             ApplyTuning(_saveData);
             Fuel.Initialise(definition, _saveData.FuelLitres);
         }
@@ -622,8 +650,43 @@ namespace IndieGame.Vehicles
             Aerodynamics.DownforceMultiplier = data.DownforceMultiplier;
             Aerodynamics.DragMultiplier = data.DragMultiplier;
 
-            if (Body != null && Mathf.Abs(data.MassOffsetKg) > 0.01f)
+            TyreGripMultiplier = Mathf.Max(0.2f, data.TyreGripMultiplier);
+            SpringTuningMultiplier = Mathf.Max(0.3f, data.SpringStiffnessMultiplier);
+            DamperTuningMultiplier = Mathf.Max(0.3f, data.DamperMultiplier);
+
+            if (Body != null)
                 Body.mass = Mathf.Max(200f, definition.Chassis.MassKg + data.MassOffsetKg);
+
+            ApplyRideHeight(data.RideHeightOffsetM);
+
+            TuningApplied?.Invoke(data);
+        }
+
+        /// <summary>
+        /// Lowering the car moves the suspension anchors down, which is what actually
+        /// happens when you fit shorter springs: the whole body sits closer to the
+        /// road and the centre of mass comes with it, so it genuinely rolls less.
+        /// </summary>
+        private void ApplyRideHeight(float offsetMetres)
+        {
+            float clamped = Mathf.Clamp(offsetMetres, -0.09f, 0.05f);
+            float delta = clamped - _appliedRideHeightOffset;
+            if (Mathf.Abs(delta) < 0.0001f) return;
+
+            for (int i = 0; i < wheels.Length; i++)
+            {
+                Transform anchor = wheels[i].SuspensionAnchor;
+                if (anchor == null) continue;
+                Vector3 local = anchor.localPosition;
+                local.y += delta;
+                anchor.localPosition = local;
+            }
+
+            Vector3 com = definition.Chassis.CentreOfMassOffset;
+            com.y += clamped;
+            Body.centerOfMass = com;
+
+            _appliedRideHeightOffset = clamped;
         }
 
         public void SaveState()
@@ -656,6 +719,27 @@ namespace IndieGame.Vehicles
 
             for (int i = 0; i < wheels.Length; i++) wheels[i].AngularVelocity = 0f;
             Odometer.NotifyTeleport(position);
+        }
+
+        /// <summary>
+        /// True while the car is parked with nobody in it. The handbrake is forced on
+        /// and the engine is off, but the vehicle keeps simulating so it sits on its
+        /// springs correctly and is ready to drive the moment you get in.
+        /// </summary>
+        public bool IsParked { get; private set; }
+
+        /// <summary>Leaves the car: handbrake on, engine off.</summary>
+        public void ApplyParkingBrake()
+        {
+            IsParked = true;
+            if (Engine != null && Engine.IsRunning) Engine.Shutdown();
+        }
+
+        /// <summary>Gets in: handbrake off, engine started if it was not already running.</summary>
+        public void ReleaseParkingBrake()
+        {
+            IsParked = false;
+            if (Engine != null && !Engine.IsRunning) Engine.RequestStart();
         }
 
         /// <summary>Swaps the tyre model at runtime. Used by tests and by the tuning screen.</summary>

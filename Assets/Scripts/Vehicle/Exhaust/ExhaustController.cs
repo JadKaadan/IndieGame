@@ -73,14 +73,24 @@ namespace IndieGame.Vehicles.Exhaust
         {
             if (controller == null || _subscribed) return;
             controller.GearChanged += OnGearChanged;
+            controller.TuningApplied += OnTuningApplied;
             _subscribed = true;
+
+            // Pick up tuning that was applied before this component was enabled.
+            if (controller.SaveData != null) OnTuningApplied(controller.SaveData);
         }
 
         private void OnDisable()
         {
             if (controller == null || !_subscribed) return;
             controller.GearChanged -= OnGearChanged;
+            controller.TuningApplied -= OnTuningApplied;
             _subscribed = false;
+        }
+
+        private void OnTuningApplied(Persistence.VehicleSaveData data)
+        {
+            if (data != null) exhaustAggression = Mathf.Clamp01(data.ExhaustAggression);
         }
 
         /// <summary>

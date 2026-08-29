@@ -26,7 +26,15 @@ namespace IndieGame.Vehicles.Visual
             Glass
         }
 
+        /// <summary>Silhouette to loft. Adding a style is a new station table, not new code.</summary>
+        public enum Style
+        {
+            Coupe,
+            Hatchback
+        }
+
         [SerializeField] private Part part = Part.Body;
+        [SerializeField] private Style style = Style.Coupe;
 
         [Tooltip("Overall length in metres. Cross sections are scaled to fit.")]
         [SerializeField] private float length = 4.55f;
@@ -60,9 +68,30 @@ namespace IndieGame.Vehicles.Visual
             {  2.275f, 0.60f, 0.56f, 0.46f, 0.66f, 0.72f }  // front valance
         };
 
+        // A tall, short, upright three-door: a much boxier greenhouse than the coupe,
+        // higher floor, and a roofline that stays high all the way to the tailgate.
+        private static readonly float[,] HatchbackStations =
+        {
+            { -2.025f, 0.70f, 0.66f, 0.48f, 0.92f, 1.06f }, // rear valance
+            { -1.900f, 0.82f, 0.78f, 0.40f, 0.98f, 1.24f }, // rear bumper
+            { -1.720f, 0.88f, 0.83f, 0.34f, 1.02f, 1.42f }, // tailgate
+            { -1.400f, 0.90f, 0.83f, 0.32f, 1.04f, 1.50f }, // rear quarter
+            { -1.000f, 0.90f, 0.79f, 0.31f, 1.05f, 1.52f }, // C pillar
+            { -0.500f, 0.90f, 0.72f, 0.31f, 1.05f, 1.53f }, // roof
+            {  0.150f, 0.90f, 0.72f, 0.31f, 1.05f, 1.52f }, // roof front
+            {  0.560f, 0.89f, 0.78f, 0.32f, 1.03f, 1.32f }, // windscreen base
+            {  0.880f, 0.88f, 0.83f, 0.33f, 0.98f, 1.06f }, // cowl
+            {  1.260f, 0.89f, 0.84f, 0.34f, 0.92f, 1.00f }, // bonnet
+            {  1.620f, 0.85f, 0.80f, 0.37f, 0.86f, 0.96f },
+            {  1.860f, 0.79f, 0.74f, 0.42f, 0.78f, 0.90f }, // nose
+            {  1.960f, 0.68f, 0.63f, 0.48f, 0.70f, 0.80f },
+            {  2.025f, 0.55f, 0.51f, 0.54f, 0.64f, 0.72f }  // front valance
+        };
+
         private const int RingSize = 12;
         private const float ReferenceLength = 4.55f;
         private const float ReferenceWidth = 1.86f;
+        private const float HatchbackReferenceLength = 4.05f;
 
         // Glazed bands: first station index, last station index, first ring index, last ring index.
         private static readonly int[,] GlassBands =
@@ -74,6 +103,11 @@ namespace IndieGame.Vehicles.Visual
         };
 
         private MeshFilter _filter;
+
+        private float[,] ActiveStations => style == Style.Hatchback ? HatchbackStations : Stations;
+
+        private float ReferenceLengthForStyle =>
+            style == Style.Hatchback ? HatchbackReferenceLength : ReferenceLength;
 
         private void Awake() => Rebuild();
 
@@ -99,15 +133,16 @@ namespace IndieGame.Vehicles.Visual
         /// <summary>One closed cross section ring, in local space.</summary>
         private Vector3[] Ring(int station)
         {
-            float lengthScale = length / ReferenceLength;
+            float[,] table = ActiveStations;
+            float lengthScale = length / ReferenceLengthForStyle;
             float widthScale = width / ReferenceWidth;
 
-            float z = Stations[station, 0] * lengthScale;
-            float sill = Stations[station, 1] * widthScale;
-            float roofHalf = Stations[station, 2] * widthScale;
-            float floorY = Stations[station, 3];
-            float shoulderY = Stations[station, 4];
-            float roofY = Stations[station, 5];
+            float z = table[station, 0] * lengthScale;
+            float sill = table[station, 1] * widthScale;
+            float roofHalf = table[station, 2] * widthScale;
+            float floorY = table[station, 3];
+            float shoulderY = table[station, 4];
+            float roofY = table[station, 5];
 
             float lowerY = Mathf.Lerp(floorY, shoulderY, 0.45f);
 
@@ -130,7 +165,7 @@ namespace IndieGame.Vehicles.Visual
 
         private Mesh BuildShell()
         {
-            int stationCount = Stations.GetLength(0);
+            int stationCount = ActiveStations.GetLength(0);
             var vertices = new List<Vector3>(stationCount * RingSize + 2);
             var triangles = new List<int>();
 
@@ -169,7 +204,7 @@ namespace IndieGame.Vehicles.Visual
             var vertices = new List<Vector3>();
             var triangles = new List<int>();
 
-            var rings = new Vector3[Stations.GetLength(0)][];
+            var rings = new Vector3[ActiveStations.GetLength(0)][];
             for (int s = 0; s < rings.Length; s++) rings[s] = Ring(s);
 
             for (int band = 0; band < GlassBands.GetLength(0); band++)

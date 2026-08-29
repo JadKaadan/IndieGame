@@ -48,6 +48,18 @@ namespace IndieGame.Persistence
         public float DownforceMultiplier = 1f;
         public float DragMultiplier = 1f;
         public float MassOffsetKg;
+        public float ExhaustAggression = 0.35f;
+
+        // --- Installed upgrades -----------------------------------------------
+        /// <summary>Selected level per tuning category, indexed by TuningCategory. 0 is stock.</summary>
+        public int[] TuningLevels = new int[0];
+
+        // --- Measured performance ---------------------------------------------
+        /// <summary>Best measured times and speeds for this car, -1 when never recorded.</summary>
+        public float BestZeroToHundredKmh = -1f;
+        public float BestZeroToTwoHundredKmh = -1f;
+        public float BestTopSpeedKmh = -1f;
+        public float BestHundredToZeroMetres = -1f;
 
         // --- Fuel -------------------------------------------------------------
         public float FuelLitres = -1f; // -1 means "fill on first spawn"

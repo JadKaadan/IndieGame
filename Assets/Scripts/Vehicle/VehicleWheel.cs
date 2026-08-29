@@ -257,7 +257,7 @@ namespace IndieGame.Vehicles
         /// that <see cref="LoadN"/> is current.
         /// </summary>
         public void UpdateTireForces(Rigidbody body, VehicleDefinition definition,
-                                     ITireModel tireModel, float deltaTime)
+                                     ITireModel tireModel, float gripMultiplier, float deltaTime)
         {
             var tyre = definition.Tyres;
 
@@ -311,8 +311,10 @@ namespace IndieGame.Vehicles
             SlipRatio += (steadySlipRatio - SlipRatio) * relaxRate;
             SlipAngleRad += (steadySlipAngle - SlipAngleRad) * relaxRate;
 
+            // Surface and tuning both scale the same peak friction coefficient: a wet
+            // road and a worse tyre compound are the same thing to the contact patch.
             TireForces forces = tireModel.Evaluate(SlipRatio, SlipAngleRad, LoadN,
-                                                   SurfaceFrictionScale, tyre);
+                                                   SurfaceFrictionScale * gripMultiplier, tyre);
 
             LongitudinalForceN = forces.Longitudinal;
             LateralForceN = forces.Lateral;

@@ -113,6 +113,15 @@ namespace IndieGame.Cameras
             }
         }
 
+        /// <summary>Repoints the rig at another car's mount points.</summary>
+        public void SetAnchors(IndieGame.Vehicles.PrototypeCameraAnchors anchors)
+        {
+            if (anchors == null) return;
+            cockpitAnchor = anchors.Cockpit;
+            hoodAnchor = anchors.Hood;
+            bumperAnchor = anchors.Bumper;
+        }
+
         private void Awake()
         {
             _camera = GetComponent<Camera>();

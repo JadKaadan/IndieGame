@@ -500,6 +500,42 @@ namespace IndieGame.Vehicles.Data
         }
 
         /// <summary>
+        /// Crankshaft torque at a given RPM with tuning applied: the ECU multiplier
+        /// scales the whole curve, and a turbo upgrade raises the boost ceiling so the
+        /// multiplier can exceed 1. This is the same maths the engine runs, so the
+        /// dyno screen and the car cannot disagree.
+        /// </summary>
+        public float TunedTorqueAtRpm(float rpm, float torqueMultiplier, float boostBarOffset)
+        {
+            float natural = EvaluateNaturalTorque(rpm);
+            if (Engine.Aspiration == Aspiration.NaturallyAspirated)
+                return natural * torqueMultiplier;
+
+            float spool = Core.SimMath.Remap01(rpm, Engine.BoostOnsetRpm, Engine.BoostFullRpm);
+            if (Engine.Aspiration == Aspiration.Supercharged) spool = Mathf.Max(spool, 0.55f);
+
+            float ceilingBar = Mathf.Max(0.01f, Engine.MaxBoostBar + boostBarOffset);
+            float boostFraction = spool * ceilingBar / Mathf.Max(0.01f, Engine.MaxBoostBar);
+            return natural * BoostMultiplierFromFraction(boostFraction) * torqueMultiplier;
+        }
+
+        /// <summary>Peak tuned power in hp and the RPM it occurs at.</summary>
+        public void CalculateTunedPeaks(float torqueMultiplier, float boostBarOffset,
+                                        out float horsepower, out float hpRpm,
+                                        out float torqueNm, out float torqueRpm)
+        {
+            horsepower = 0f; hpRpm = Engine.IdleRpm;
+            torqueNm = 0f; torqueRpm = Engine.IdleRpm;
+            for (float rpm = Engine.IdleRpm; rpm <= Engine.RedlineRpm; rpm += 25f)
+            {
+                float t = TunedTorqueAtRpm(rpm, torqueMultiplier, boostBarOffset);
+                float hp = Core.Units.TorqueToHorsepower(t, rpm);
+                if (t > torqueNm) { torqueNm = t; torqueRpm = rpm; }
+                if (hp > horsepower) { horsepower = hp; hpRpm = rpm; }
+            }
+        }
+
+        /// <summary>
         /// Local Z the centre of mass would need in order to produce
         /// <see cref="ChassisConfig.FrontWeightDistribution"/>, given that the root is
         /// centred between the axles. Use it when authoring a car from a real corner-weight figure.

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 using IndieGame.Cameras;
 using IndieGame.Core;
@@ -21,8 +22,15 @@ namespace IndieGame.EditorTools
     public static class BuildPlayablePrototype
     {
         private const string ScenePath = "Assets/Scenes/VehicleTest.unity";
-        private const string PrefabPath = "Assets/Prefabs/Vehicles/PlayerVehicle.prefab";
+        private const string PrefabFolder = "Assets/Prefabs/Vehicles";
         private const string MaterialFolder = "Assets/Art/Materials";
+
+        /// <summary>Prefab, spawn position and heading for each car placed in the scene.</summary>
+        private static readonly (string Prefab, Vector3 Position, float Heading)[] Placements =
+        {
+            ("MeridianGTS", new Vector3(4.2f, RoadTop, -200f), 0f),
+            ("Vantis15T", new Vector3(TurnCentreX - 24f, RoadTop, -80f), 90f),
+        };
 
         // Circuit geometry, matching the committed scene.
         private const float StraightZ0 = -260f;
@@ -45,13 +53,19 @@ namespace IndieGame.EditorTools
 
             ProjectBootstrapTool.ConfigureAll();
 
-            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
-            if (prefab == null)
+            var prefabs = new List<GameObject>();
+            foreach (var placement in Placements)
             {
-                EditorUtility.DisplayDialog("Vehicle prefab missing",
-                    "Could not find " + PrefabPath + ".\n\nThe prefab is part of the repository; " +
-                    "restore it before rebuilding the scene.", "OK");
-                return;
+                string path = $"{PrefabFolder}/{placement.Prefab}.prefab";
+                var asset = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                if (asset == null)
+                {
+                    EditorUtility.DisplayDialog("Vehicle prefab missing",
+                        "Could not find " + path + ".\n\nThe prefabs are part of the repository; " +
+                        "restore them before rebuilding the scene.", "OK");
+                    return;
+                }
+                prefabs.Add(asset);
             }
 
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
@@ -59,9 +73,14 @@ namespace IndieGame.EditorTools
             BuildManager();
             BuildLighting();
             BuildEnvironment();
-            VehicleController vehicle = BuildVehicle(prefab);
+
+            var vehicles = new List<VehicleController>();
+            for (int i = 0; i < prefabs.Count; i++)
+                vehicles.Add(BuildVehicle(prefabs[i], Placements[i].Position, Placements[i].Heading));
+
+            VehicleController vehicle = vehicles[0];
             BuildCamera(vehicle);
-            BuildUi(vehicle);
+            BuildUi(vehicle, vehicles);
 
             Directory.CreateDirectory(Path.GetDirectoryName(ScenePath));
             EditorSceneManager.SaveScene(scene, ScenePath);
@@ -78,17 +97,22 @@ namespace IndieGame.EditorTools
         [MenuItem("Tools/Indie Driving Game/Save Scene Vehicle As Prefab", false, 41)]
         public static void SaveSceneVehicleAsPrefab()
         {
-            var vehicle = Object.FindAnyObjectByType<VehicleController>();
+            var vehicle = Selection.activeGameObject != null
+                ? Selection.activeGameObject.GetComponentInParent<VehicleController>()
+                : Object.FindAnyObjectByType<VehicleController>();
+
             if (vehicle == null)
             {
-                EditorUtility.DisplayDialog("No vehicle", "No VehicleController in the open scene.", "OK");
+                EditorUtility.DisplayDialog("No vehicle",
+                    "Select a vehicle in the scene, or open a scene that contains one.", "OK");
                 return;
             }
 
-            Directory.CreateDirectory(Path.GetDirectoryName(PrefabPath));
-            PrefabUtility.SaveAsPrefabAsset(vehicle.gameObject, PrefabPath, out bool success);
+            string path = $"{PrefabFolder}/{vehicle.name}.prefab";
+            Directory.CreateDirectory(PrefabFolder);
+            PrefabUtility.SaveAsPrefabAsset(vehicle.gameObject, path, out bool success);
             Debug.Log(success
-                ? "[IndieGame] Saved " + vehicle.name + " to " + PrefabPath
+                ? "[IndieGame] Saved " + vehicle.name + " to " + path
                 : "[IndieGame] Failed to save the vehicle prefab.");
         }
 
@@ -258,10 +282,10 @@ namespace IndieGame.EditorTools
             return box;
         }
 
-        private static VehicleController BuildVehicle(GameObject prefab)
+        private static VehicleController BuildVehicle(GameObject prefab, Vector3 position, float heading)
         {
             var instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
-            instance.transform.SetPositionAndRotation(new Vector3(4.2f, RoadTop, -200f), Quaternion.identity);
+            instance.transform.SetPositionAndRotation(position, Quaternion.Euler(0f, heading, 0f));
             return instance.GetComponent<VehicleController>();
         }
 
@@ -301,7 +325,7 @@ namespace IndieGame.EditorTools
             serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 
-        private static void BuildUi(VehicleController vehicle)
+        private static void BuildUi(VehicleController vehicle, List<VehicleController> vehicles)
         {
             var ui = new GameObject("UI").transform;
 
@@ -315,8 +339,29 @@ namespace IndieGame.EditorTools
             var debug = debugObject.AddComponent<VehicleDebugHud>();
             debug.SetTarget(vehicle);
 
-            var serialized = new SerializedObject(debug);
-            serialized.FindProperty("visibleOnStart").boolValue = false;
+            var debugSerialized = new SerializedObject(debug);
+            debugSerialized.FindProperty("visibleOnStart").boolValue = false;
+            debugSerialized.ApplyModifiedPropertiesWithoutUndo();
+
+            var garageObject = new GameObject("Garage");
+            garageObject.transform.SetParent(ui, false);
+            var garage = garageObject.AddComponent<GarageMenu>();
+            garage.SetTarget(vehicle);
+
+            var systems = new GameObject("Systems");
+            var switcher = systems.AddComponent<VehicleSwitcher>();
+
+            var serialized = new SerializedObject(switcher);
+            SerializedProperty list = serialized.FindProperty("vehicles");
+            list.arraySize = vehicles.Count;
+            for (int i = 0; i < vehicles.Count; i++)
+                list.GetArrayElementAtIndex(i).objectReferenceValue = vehicles[i];
+
+            serialized.FindProperty("cameraRig").objectReferenceValue =
+                Object.FindAnyObjectByType<VehicleCameraRig>();
+            serialized.FindProperty("hud").objectReferenceValue = hud;
+            serialized.FindProperty("debugHud").objectReferenceValue = debug;
+            serialized.FindProperty("garage").objectReferenceValue = garage;
             serialized.ApplyModifiedPropertiesWithoutUndo();
         }
     }
