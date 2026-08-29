@@ -1,3 +1,4 @@
+using IndieGame.Core;
 using IndieGame.Vehicles;
 using IndieGame.Vehicles.Data;
 using UnityEngine;
@@ -37,9 +38,9 @@ namespace IndieGame.UI
 
         private void Update()
         {
-            // The legacy Input class is used here on purpose: the debug overlay must
-            // work regardless of which input backend the project is configured for.
-            if (UnityEngine.Input.GetKeyDown(toggleKey)) _visible = !_visible;
+            // Routed through HotKey because the legacy Input class throws outright when
+            // the project is set to the new Input System backend.
+            if (HotKey.Pressed(toggleKey)) _visible = !_visible;
         }
 
         private void OnGUI()

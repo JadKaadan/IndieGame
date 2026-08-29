@@ -4,8 +4,7 @@ A realistic free-roam driving game built in Unity. Simulation-leaning vehicle
 physics, real drivetrains, working dashboards, tuning that changes the car rather
 than a number on a menu, and eventually an open world with traffic.
 
-**Status:** Phases 1–2 complete. One vehicle, fully simulated, on a test surface.
-No open world yet — and deliberately so.
+**Status:** Playable. Open `Assets/Scenes/VehicleTest.unity` and press Play.
 
 ---
 
@@ -21,11 +20,13 @@ No open world yet — and deliberately so.
 | [Docs/VEHICLE_VALIDATION.md](Docs/VEHICLE_VALIDATION.md) | Measured behaviour against specification |
 | [Docs/ASSETS.md](Docs/ASSETS.md) | Asset register and licensing rules |
 
-Three steps once Unity is open:
+1. Install the **Input System** package (Window > Package Manager > Unity Registry)
+2. Open `Assets/Scenes/VehicleTest.unity` — the editor opens it automatically on a
+   fresh session
+3. Press Play
 
-1. Install the **Input System** package
-2. **Tools > IndieGame > Configure Project Settings**
-3. **Tools > IndieGame > Build Prototype Test Scene**, then press Play
+If the scene is ever missing or damaged:
+**Tools > Indie Driving Game > Build Playable Prototype** regenerates it.
 
 ---
 
@@ -80,9 +81,9 @@ Verified numerically before ever opening Unity — see
 
 ## Controls
 
-`W`/`S` throttle and brake · `A`/`D` steer · `Space` handbrake · `E`/`Q` shift ·
-`T` manual/automatic · `M` drive mode · `C` camera · `I` ignition ·
-`Left Shift` clutch · `F3` telemetry overlay
+`W`/`S` throttle and brake · `A`/`D` steer · `Space` handbrake · `R`/`Q` shift up/down ·
+`M` manual/automatic · `B` drive mode · `V` camera · `E` ignition · `L` headlights ·
+`Left Shift` clutch · `U` units · `F3` telemetry overlay
 
 Gamepad supported. Wheel support is designed for but not yet implemented.
 

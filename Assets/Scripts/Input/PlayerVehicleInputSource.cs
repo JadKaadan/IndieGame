@@ -7,18 +7,24 @@ using UnityEngine.InputSystem;
 namespace IndieGame.VehicleInput
 {
     /// <summary>
-    /// Local player input. Builds its action set in code so the project works
-    /// the moment it is opened - no .inputactions asset to wire up and no GUID
-    /// references to break. When the rebinding UI is built (Phase 10) an
-    /// InputActionAsset can be assigned to <see cref="overrideActions"/> and
-    /// this class will read from it instead.
+    /// Local player input.
     ///
-    /// Edge commands (shift up, ignition, camera) are latched during Update and
-    /// drained in FixedUpdate, so a quick tap is never lost between physics steps.
+    /// Bindings come from Assets/Resources/Input/Driving.inputactions when it is
+    /// present, which is what a rebinding UI will edit later. If that asset is
+    /// missing or does not contain every action this component needs, it falls
+    /// back to an identical action set built in code, so the vehicle is never left
+    /// uncontrollable because of an asset problem.
+    ///
+    /// Edge commands are latched during Update and drained in FixedUpdate, so a
+    /// quick tap is never lost between physics steps.
     /// </summary>
     [AddComponentMenu("IndieGame/Input/Player Vehicle Input Source")]
     public class PlayerVehicleInputSource : MonoBehaviour, IVehicleInputSource
     {
+        [Header("Bindings")]
+        [Tooltip("Optional. Leave empty to load Resources/Input/Driving, then fall back to code-built actions.")]
+        [SerializeField] private ScriptableObject actionsAsset;
+
         [Header("Feel")]
         [Tooltip("Seconds for a digital (keyboard) steering input to reach full lock. " +
                  "Analogue sticks and wheels bypass this entirely.")]
@@ -38,12 +44,11 @@ namespace IndieGame.VehicleInput
 
         public bool IsEnabled { get; set; } = true;
 
-        /// <summary>Read-only view for HUD / debug overlays.</summary>
+        /// <summary>True when bindings were taken from the .inputactions asset.</summary>
+        public bool UsingActionAsset { get; private set; }
+
         public VehicleInputState CurrentState => _state;
 
-        // ------------------------------------------------------------------
-        // IVehicleInputSource
-        // ------------------------------------------------------------------
         public VehicleInputState ConsumeInput()
         {
             VehicleInputState snapshot = _state;
@@ -52,34 +57,108 @@ namespace IndieGame.VehicleInput
         }
 
 #if ENABLE_INPUT_SYSTEM
-        // ------------------------------------------------------------------
-        // Unity Input System path (recommended)
-        // ------------------------------------------------------------------
-        private InputAction _throttle;
-        private InputAction _brake;
-        private InputAction _steerDigital;
-        private InputAction _steerAnalog;
-        private InputAction _clutch;
-        private InputAction _handbrake;
-        private InputAction _look;
-        private InputAction _shiftUp;
-        private InputAction _shiftDown;
-        private InputAction _ignition;
-        private InputAction _driveMode;
-        private InputAction _transmissionMode;
-        private InputAction _camera;
-        private InputAction _headlights;
-        private InputAction _hazards;
-        private InputAction _indicatorLeft;
-        private InputAction _indicatorRight;
+        private const string ResourcePath = "Input/Driving";
+        private const string MapName = "Vehicle";
 
+        private InputActionAsset _runtimeAsset;
+        private bool _ownsActions;
+
+        private InputAction _throttle, _brake, _clutch, _handbrake;
+        private InputAction _steerDigital, _steerAnalog, _look;
+        private InputAction _shiftUp, _shiftDown, _ignition, _driveMode, _transmissionMode;
+        private InputAction _camera, _headlights, _hazards, _indicatorLeft, _indicatorRight;
         private InputAction[] _all;
 
         private void OnEnable()
         {
+            if (!TryBindFromAsset()) BuildCodeActions();
+
+            _all = new[]
+            {
+                _throttle, _brake, _clutch, _handbrake, _steerDigital, _steerAnalog, _look,
+                _shiftUp, _shiftDown, _ignition, _driveMode, _transmissionMode,
+                _camera, _headlights, _hazards, _indicatorLeft, _indicatorRight
+            };
+
+            for (int i = 0; i < _all.Length; i++) _all[i]?.Enable();
+        }
+
+        private void OnDisable()
+        {
+            if (_all != null)
+            {
+                for (int i = 0; i < _all.Length; i++)
+                {
+                    if (_all[i] == null) continue;
+                    _all[i].Disable();
+                    if (_ownsActions) _all[i].Dispose();
+                }
+                _all = null;
+            }
+
+            if (_runtimeAsset != null)
+            {
+                Destroy(_runtimeAsset);
+                _runtimeAsset = null;
+            }
+        }
+
+        private bool TryBindFromAsset()
+        {
+            var source = actionsAsset as InputActionAsset;
+            if (source == null) source = Resources.Load<InputActionAsset>(ResourcePath);
+            if (source == null) return false;
+
+            // A private copy, so two vehicles in one scene do not share action state.
+            _runtimeAsset = Instantiate(source);
+            InputActionMap map = _runtimeAsset.FindActionMap(MapName, false);
+            if (map == null) { Destroy(_runtimeAsset); _runtimeAsset = null; return false; }
+
+            _throttle = map.FindAction("Throttle", false);
+            _brake = map.FindAction("Brake", false);
+            _clutch = map.FindAction("Clutch", false);
+            _handbrake = map.FindAction("Handbrake", false);
+            _steerDigital = map.FindAction("SteerDigital", false);
+            _steerAnalog = map.FindAction("SteerAnalog", false);
+            _look = map.FindAction("Look", false);
+            _shiftUp = map.FindAction("ShiftUp", false);
+            _shiftDown = map.FindAction("ShiftDown", false);
+            _ignition = map.FindAction("Ignition", false);
+            _driveMode = map.FindAction("DriveMode", false);
+            _transmissionMode = map.FindAction("TransmissionMode", false);
+            _camera = map.FindAction("Camera", false);
+            _headlights = map.FindAction("Headlights", false);
+            _hazards = map.FindAction("Hazards", false);
+            _indicatorLeft = map.FindAction("IndicatorLeft", false);
+            _indicatorRight = map.FindAction("IndicatorRight", false);
+
+            bool complete = _throttle != null && _brake != null && _clutch != null && _handbrake != null
+                            && _steerDigital != null && _steerAnalog != null && _look != null
+                            && _shiftUp != null && _shiftDown != null && _ignition != null
+                            && _driveMode != null && _transmissionMode != null && _camera != null
+                            && _headlights != null && _hazards != null
+                            && _indicatorLeft != null && _indicatorRight != null;
+
+            if (!complete)
+            {
+                Destroy(_runtimeAsset);
+                _runtimeAsset = null;
+                return false;
+            }
+
+            _ownsActions = false;
+            UsingActionAsset = true;
+            return true;
+        }
+
+        private void BuildCodeActions()
+        {
+            _ownsActions = true;
+            UsingActionAsset = false;
+
             _throttle = Value("Throttle", "<Keyboard>/w", "<Keyboard>/upArrow", "<Gamepad>/rightTrigger");
             _brake = Value("Brake", "<Keyboard>/s", "<Keyboard>/downArrow", "<Gamepad>/leftTrigger");
-            _clutch = Value("Clutch", "<Keyboard>/leftShift", "<Gamepad>/leftShoulder");
+            _clutch = Value("Clutch", "<Keyboard>/leftShift", "<Gamepad>/leftStickPress");
             _handbrake = Value("Handbrake", "<Keyboard>/space", "<Gamepad>/buttonEast");
 
             _steerDigital = new InputAction("SteerDigital", InputActionType.Value);
@@ -96,36 +175,16 @@ namespace IndieGame.VehicleInput
             _look.AddBinding("<Mouse>/delta");
             _look.AddBinding("<Gamepad>/rightStick");
 
-            _shiftUp = Button("ShiftUp", "<Keyboard>/e", "<Gamepad>/rightShoulder");
+            _shiftUp = Button("ShiftUp", "<Keyboard>/r", "<Gamepad>/rightShoulder");
             _shiftDown = Button("ShiftDown", "<Keyboard>/q", "<Gamepad>/leftShoulder");
-            _ignition = Button("Ignition", "<Keyboard>/i", "<Gamepad>/select");
-            _driveMode = Button("DriveMode", "<Keyboard>/m", "<Gamepad>/dpad/up");
-            _transmissionMode = Button("TransmissionMode", "<Keyboard>/t", "<Gamepad>/dpad/down");
-            _camera = Button("Camera", "<Keyboard>/c", "<Gamepad>/buttonNorth");
-            _headlights = Button("Headlights", "<Keyboard>/l");
+            _ignition = Button("Ignition", "<Keyboard>/e", "<Gamepad>/select");
+            _driveMode = Button("DriveMode", "<Keyboard>/b", "<Gamepad>/dpad/up");
+            _transmissionMode = Button("TransmissionMode", "<Keyboard>/m", "<Gamepad>/dpad/down");
+            _camera = Button("Camera", "<Keyboard>/v", "<Gamepad>/buttonNorth");
+            _headlights = Button("Headlights", "<Keyboard>/l", "<Gamepad>/dpad/left");
             _hazards = Button("Hazards", "<Keyboard>/h");
             _indicatorLeft = Button("IndicatorLeft", "<Keyboard>/z");
             _indicatorRight = Button("IndicatorRight", "<Keyboard>/x");
-
-            _all = new[]
-            {
-                _throttle, _brake, _steerDigital, _steerAnalog, _clutch, _handbrake, _look,
-                _shiftUp, _shiftDown, _ignition, _driveMode, _transmissionMode, _camera,
-                _headlights, _hazards, _indicatorLeft, _indicatorRight
-            };
-
-            for (int i = 0; i < _all.Length; i++) _all[i].Enable();
-        }
-
-        private void OnDisable()
-        {
-            if (_all == null) return;
-            for (int i = 0; i < _all.Length; i++)
-            {
-                _all[i].Disable();
-                _all[i].Dispose();
-            }
-            _all = null;
         }
 
         private static InputAction Value(string name, params string[] paths)
@@ -162,7 +221,6 @@ namespace IndieGame.VehicleInput
             if (invertLookY) look.y = -look.y;
             _state.Look = look;
 
-            // Latch edges - OR them in so nothing is lost before FixedUpdate reads.
             _state.ShiftUp |= _shiftUp.triggered;
             _state.ShiftDown |= _shiftDown.triggered;
             _state.ToggleIgnition |= _ignition.triggered;
@@ -177,10 +235,8 @@ namespace IndieGame.VehicleInput
 
 #else
         // ------------------------------------------------------------------
-        // Legacy Input Manager fallback.
-        // Active when Player Settings > Active Input Handling is set to
-        // "Input Manager (Old)". Bindings are hard-coded because the legacy
-        // manager cannot be configured from script.
+        // Legacy Input Manager fallback, used when Player Settings has
+        // Active Input Handling set to "Input Manager (Old)".
         // ------------------------------------------------------------------
         private void Update()
         {
@@ -191,32 +247,32 @@ namespace IndieGame.VehicleInput
             }
 
             float dt = Time.unscaledDeltaTime;
+            var input = UnityEngine.Input;
 
-            _state.Throttle = UnityEngine.Input.GetKey(KeyCode.W) || UnityEngine.Input.GetKey(KeyCode.UpArrow) ? 1f : 0f;
-            _state.Brake = UnityEngine.Input.GetKey(KeyCode.S) || UnityEngine.Input.GetKey(KeyCode.DownArrow) ? 1f : 0f;
-            _state.Clutch = UnityEngine.Input.GetKey(KeyCode.LeftShift) ? 1f : 0f;
-            _state.Handbrake = UnityEngine.Input.GetKey(KeyCode.Space) ? 1f : 0f;
+            _state.Throttle = input.GetKey(KeyCode.W) || input.GetKey(KeyCode.UpArrow) ? 1f : 0f;
+            _state.Brake = input.GetKey(KeyCode.S) || input.GetKey(KeyCode.DownArrow) ? 1f : 0f;
+            _state.Clutch = input.GetKey(KeyCode.LeftShift) ? 1f : 0f;
+            _state.Handbrake = input.GetKey(KeyCode.Space) ? 1f : 0f;
 
             float digital = 0f;
-            if (UnityEngine.Input.GetKey(KeyCode.A) || UnityEngine.Input.GetKey(KeyCode.LeftArrow)) digital -= 1f;
-            if (UnityEngine.Input.GetKey(KeyCode.D) || UnityEngine.Input.GetKey(KeyCode.RightArrow)) digital += 1f;
+            if (input.GetKey(KeyCode.A) || input.GetKey(KeyCode.LeftArrow)) digital -= 1f;
+            if (input.GetKey(KeyCode.D) || input.GetKey(KeyCode.RightArrow)) digital += 1f;
             _state.Steer = ResolveSteer(0f, digital, dt);
 
-            Vector2 look = new Vector2(UnityEngine.Input.GetAxisRaw("Mouse X"),
-                                       UnityEngine.Input.GetAxisRaw("Mouse Y")) * lookSensitivity;
+            Vector2 look = new Vector2(input.GetAxisRaw("Mouse X"), input.GetAxisRaw("Mouse Y")) * lookSensitivity;
             if (invertLookY) look.y = -look.y;
             _state.Look = look;
 
-            _state.ShiftUp |= UnityEngine.Input.GetKeyDown(KeyCode.E);
-            _state.ShiftDown |= UnityEngine.Input.GetKeyDown(KeyCode.Q);
-            _state.ToggleIgnition |= UnityEngine.Input.GetKeyDown(KeyCode.I);
-            _state.ToggleDriveMode |= UnityEngine.Input.GetKeyDown(KeyCode.M);
-            _state.ToggleTransmissionMode |= UnityEngine.Input.GetKeyDown(KeyCode.T);
-            _state.ToggleCamera |= UnityEngine.Input.GetKeyDown(KeyCode.C);
-            _state.ToggleHeadlights |= UnityEngine.Input.GetKeyDown(KeyCode.L);
-            _state.ToggleHazards |= UnityEngine.Input.GetKeyDown(KeyCode.H);
-            _state.IndicatorLeft |= UnityEngine.Input.GetKeyDown(KeyCode.Z);
-            _state.IndicatorRight |= UnityEngine.Input.GetKeyDown(KeyCode.X);
+            _state.ShiftUp |= input.GetKeyDown(KeyCode.R);
+            _state.ShiftDown |= input.GetKeyDown(KeyCode.Q);
+            _state.ToggleIgnition |= input.GetKeyDown(KeyCode.E);
+            _state.ToggleDriveMode |= input.GetKeyDown(KeyCode.B);
+            _state.ToggleTransmissionMode |= input.GetKeyDown(KeyCode.M);
+            _state.ToggleCamera |= input.GetKeyDown(KeyCode.V);
+            _state.ToggleHeadlights |= input.GetKeyDown(KeyCode.L);
+            _state.ToggleHazards |= input.GetKeyDown(KeyCode.H);
+            _state.IndicatorLeft |= input.GetKeyDown(KeyCode.Z);
+            _state.IndicatorRight |= input.GetKeyDown(KeyCode.X);
         }
 #endif
 
@@ -229,7 +285,7 @@ namespace IndieGame.VehicleInput
             float shaped = SimMath.ApplyDeadZone(analog, stickDeadZone);
             if (Mathf.Abs(shaped) > 0.001f)
             {
-                _digitalSteer = shaped; // keep them in sync so releasing the stick does not jump
+                _digitalSteer = shaped;
                 return shaped;
             }
 

@@ -136,7 +136,7 @@ namespace IndieGame.Vehicles
         /// </summary>
         public void CastSuspension(Rigidbody body, VehicleDefinition definition,
                                    VehicleDefinition.SuspensionAxleConfig axle,
-                                   float springMultiplier, float damperMultiplier,
+                                   int groundMask, float springMultiplier, float damperMultiplier,
                                    float deltaTime)
         {
             SuspensionForceN = 0f;
@@ -154,7 +154,7 @@ namespace IndieGame.Vehicles
             float maxDistance = axle.RestLengthM + radius;
 
             IsGrounded = Physics.Raycast(origin, down, out RaycastHit hit, maxDistance,
-                                         definition.Wheels.GroundMask, QueryTriggerInteraction.Ignore);
+                                         groundMask, QueryTriggerInteraction.Ignore);
 
             if (!IsGrounded)
             {

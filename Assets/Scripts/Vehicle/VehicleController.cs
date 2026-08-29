@@ -93,6 +93,23 @@ namespace IndieGame.Vehicles
         /// <summary>Raised when the drive mode changes, with the new index.</summary>
         public event Action<int> DriveModeChanged;
 
+        // The following are raised from FixedUpdate because the commands they carry
+        // live for exactly one physics step. At a 200 Hz timestep several physics
+        // steps run per rendered frame, so a presentation component polling
+        // CurrentInput in Update would miss them or see them twice.
+
+        /// <summary>Raised when the driver asks to toggle the headlights.</summary>
+        public event Action HeadlightToggleRequested;
+
+        /// <summary>Raised when the driver asks to toggle the hazard lights.</summary>
+        public event Action HazardToggleRequested;
+
+        /// <summary>Raised when the driver toggles an indicator. True is left.</summary>
+        public event Action<bool> IndicatorToggleRequested;
+
+        /// <summary>Raised on a gear change. True when it was a downshift.</summary>
+        public event Action<bool> GearChanged;
+
         public int DriveModeIndex { get; private set; }
 
         public DriveModeSettings CurrentDriveMode =>
@@ -106,6 +123,7 @@ namespace IndieGame.Vehicles
         private IVehicleInputSource _inputSource;
         private ITireModel _tireModel = PacejkaTireModel.Shared;
         private VehicleSaveData _saveData;
+        private int _groundMask;
         private float _autoSaveTimer;
         private Vector3 _previousVelocity;
         private bool _initialised;
@@ -127,6 +145,7 @@ namespace IndieGame.Vehicles
             }
 
             ResolveInputSource();
+            ResolveGroundMask();
             BuildSubsystems();
             ConfigureRigidbody();
             _initialised = true;
@@ -170,6 +189,23 @@ namespace IndieGame.Vehicles
             _inputSource = GetComponentInChildren<IVehicleInputSource>();
             if (_inputSource == null)
                 Debug.LogWarning($"[VehicleController] '{name}' has no input source. The car will not respond to the driver.", this);
+        }
+
+        /// <summary>
+        /// Layers the suspension may raycast against. Falls back to everything except
+        /// the vehicle's own layer when the definition leaves the mask empty, so a car
+        /// can never end up falling through the world because one field was unset.
+        /// </summary>
+        private void ResolveGroundMask()
+        {
+            _groundMask = definition.Wheels.GroundMask.value;
+            if (_groundMask == 0)
+            {
+                _groundMask = ~(1 << gameObject.layer);
+                Debug.LogWarning($"[VehicleController] '{name}' has an empty Ground Mask on " +
+                                 $"'{definition.name}'. Falling back to everything except layer " +
+                                 $"{gameObject.layer}.", this);
+            }
         }
 
         private void BuildSubsystems()
@@ -287,7 +323,8 @@ namespace IndieGame.Vehicles
             for (int i = 0; i < wheels.Length; i++)
             {
                 var axle = wheels[i].IsFrontAxle ? definition.FrontSuspension : definition.RearSuspension;
-                wheels[i].CastSuspension(Body, definition, axle, springMultiplier, damperMultiplier, dt);
+                wheels[i].CastSuspension(Body, definition, axle, _groundMask,
+                                         springMultiplier, damperMultiplier, dt);
             }
 
             if (_frontLeft != null && _frontRight != null)
@@ -347,6 +384,9 @@ namespace IndieGame.Vehicles
 
             UpdateTelemetry(velocity, forwardSpeed, grounded, dt);
 
+            if (Transmission.ShiftEventThisStep)
+                GearChanged?.Invoke(Transmission.LastShiftWasDownshift);
+
             if (persistState)
             {
                 _autoSaveTimer += dt;
@@ -401,6 +441,10 @@ namespace IndieGame.Vehicles
                 Transmission.SelectGear(input.RequestedGear, forwardSpeed);
 
             if (input.ToggleCamera) CameraToggleRequested?.Invoke();
+            if (input.ToggleHeadlights) HeadlightToggleRequested?.Invoke();
+            if (input.ToggleHazards) HazardToggleRequested?.Invoke();
+            if (input.IndicatorLeft) IndicatorToggleRequested?.Invoke(true);
+            if (input.IndicatorRight) IndicatorToggleRequested?.Invoke(false);
         }
 
         public void CycleDriveMode()

@@ -78,6 +78,11 @@ namespace IndieGame.Cameras
         [SerializeField] private float maxPitchDeg = 35f;
         [SerializeField, Range(0.01f, 0.6f)] private float lookReturnHalfLife = 0.25f;
 
+        [Header("Audio perspective")]
+        [Tooltip("Optional. Told when the view moves inside or outside the car so the engine " +
+                 "note can be muffled in the cockpit.")]
+        [SerializeField] private IndieGame.Vehicles.Audio.VehicleEngineAudio engineAudio;
+
         [Header("Cockpit motion")]
         [Tooltip("Subtle head movement under acceleration. Keep small - large values cause motion sickness.")]
         [SerializeField] private bool cockpitMotionEffects = true;
@@ -164,6 +169,8 @@ namespace IndieGame.Cameras
             var telemetry = target.Telemetry;
             UpdateFreeLook(target.CurrentInput.Look, dt);
             UpdateFieldOfView(telemetry.SpeedKmh, dt);
+
+            if (engineAudio != null) engineAudio.SetInteriorPerspective(mode == CameraMode.Cockpit);
 
             switch (mode)
             {
